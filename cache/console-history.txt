@@ -1,0 +1,15 @@
+console.log("Deployer Balance:", ethers.formatUnits(deployerBalance, 18));
+console.log("Total Supply:", ethers.formatUnits(totalSupply, 18));
+console.log("Token Symbol:", symbol);
+console.log("Token Name:", name);
+const deployerBalance = await token.balanceOf("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
+const totalSupply = await token.totalSupply();
+const symbol = await token.symbol();
+const name = await token.name();
+const token = MyToken.attach("0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512");
+const MyToken = await ethers.getContractFactory("MyToken");
+console.log("Balance:", ethers.formatUnits(balance, 18));
+const balance = await token.balanceOf(deployer);
+const deployer = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
+const token = MyToken.attach("0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512");
+const MyToken = await ethers.getContractFactory("MyToken");
