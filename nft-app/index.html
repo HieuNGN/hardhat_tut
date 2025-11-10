@@ -269,13 +269,30 @@
 
             <button class="primary" onclick="createVoucher()">Create Voucher</button>
 
+            <!-- After the "Create Voucher" button -->
             <div id="voucherStatus"></div>
-
-            <div id="voucherDisplay"
-                style="margin-top: 20px; background: #f8f9fa; padding: 15px; border-radius: 5px; display: none;">
-                <h3>Generated Voucher</h3>
-                <textarea id="voucherJSON" rows="10" readonly style="font-family: monospace;"></textarea>
+            
+            <!-- Generated Voucher Section - Always visible now -->
+            <div style="margin-top: 30px; background: #f0f8ff; padding: 20px; border-radius: 10px; border: 2px solid #667eea;">
+                <h3 style="color: #667eea; margin-bottom: 15px;">💰 Redeem Voucher</h3>
+                <p style="color: #666; margin-bottom: 10px;">
+                    Paste a voucher JSON here to buy and mint the NFT:
+                </p>
+                <textarea id="voucherJSON" rows="10" placeholder='Paste voucher JSON here, e.g.
+            {
+              "tokenId": "1",
+              "uri": "https://...",
+              "minPrice": "10000000000000000",
+              "signature": "0x..."
+            }' style="font-family: monospace; width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px;"></textarea>
+            
+                <button class="primary" onclick="redeemVoucher()" style="margin-top: 15px; width: 100%;">
+                    💰 Redeem Voucher (Buy & Mint NFT)
+                </button>
+            
+                <div id="redeemStatus" style="margin-top: 15px;"></div>
             </div>
+
         </div>
 
         <!-- Marketplace Tab -->

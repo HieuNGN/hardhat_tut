@@ -55,7 +55,25 @@ async function connectWallet() {
             return;
         }
 
-        await window.ethereum.request({ method: 'eth_requestAccounts' });
+        // Force MetaMask to show account selection
+        // This disconnects first, then reconnects
+        try {
+            await window.ethereum.request({
+                method: "wallet_requestPermissions",
+                params: [{ eth_accounts: {} }]
+            });
+        } catch (permError) {
+            console.log('Permission request cancelled or failed:', permError);
+        }
+
+        // Now connect with the selected account
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        
+        if (accounts.length === 0) {
+            alert('No accounts found. Please unlock MetaMask.');
+            return;
+        }
+
         provider = new ethers.providers.Web3Provider(window.ethereum);
         signer = provider.getSigner();
         userAddress = await signer.getAddress();
@@ -70,19 +88,30 @@ async function connectWallet() {
         document.getElementById('marketplaceContract').textContent = 
             MARKETPLACE_CONTRACT_ADDRESS.substring(0, 6) + '...' + MARKETPLACE_CONTRACT_ADDRESS.substring(38);
         
-        console.log('Connected:', userAddress);
+        console.log('✅ Connected:', userAddress);
     } catch (error) {
         console.error('Error connecting wallet:', error);
         alert('Error connecting wallet: ' + error.message);
     }
 }
 
-// Refresh account
+
+// Refresh account - forces reconnection
 async function refreshAccount() {
     console.log('🔄 Manual refresh triggered');
-    await connectWallet();
+    
+    try {
+        // Force account selection dialog
+        await window.ethereum.request({ method: 'eth_requestAccounts' });
+        await connectWallet();
+    } catch (error) {
+        console.error('Error refreshing:', error);
+        alert('Please connect MetaMask manually');
+    }
 }
 
+
+// Create voucher for lazy minting
 // Create voucher for lazy minting
 async function createVoucher() {
     const tokenId = document.getElementById('voucherTokenId').value;
@@ -93,6 +122,11 @@ async function createVoucher() {
     try {
         if (!tokenId || !uri || !priceEth) {
             showStatus(statusDiv, 'error', 'Please fill in all fields');
+            return;
+        }
+
+        if (!userAddress) {
+            showStatus(statusDiv, 'error', 'Please connect wallet first');
             return;
         }
 
@@ -107,14 +141,30 @@ async function createVoucher() {
             minPrice: minPrice.toString()
         };
 
-        // Create the hash for signing
-        const hash = ethers.utils.solidityKeccak256(
-            ['uint256', 'string', 'uint256'],
-            [voucher.tokenId, voucher.uri, voucher.minPrice]
-        );
+        // EIP-712 domain and types
+        const domain = {
+            name: "LazyNFT",
+            version: "1",
+            chainId: 31337, // Localhost chain ID
+            verifyingContract: NFT_CONTRACT_ADDRESS
+        };
 
-        // Sign the hash
-        const signature = await signer.signMessage(ethers.utils.arrayify(hash));
+        const types = {
+            NFTVoucher: [
+                { name: "tokenId", type: "uint256" },
+                { name: "uri", type: "string" },
+                { name: "minPrice", type: "uint256" }
+            ]
+        };
+
+        const value = {
+            tokenId: voucher.tokenId,
+            uri: voucher.uri,
+            minPrice: voucher.minPrice
+        };
+
+        // Sign using EIP-712 typed data
+        const signature = await signer._signTypedData(domain, types, value);
 
         // Complete voucher with signature
         const signedVoucher = {
@@ -122,13 +172,14 @@ async function createVoucher() {
             signature: signature
         };
 
-        showStatus(statusDiv, 'success', '✅ Voucher created successfully!');
+        showStatus(statusDiv, 'success', '✅ Voucher created successfully! See below to redeem or share.');
 
-        // Display the voucher
-        const voucherDisplay = document.getElementById('voucherDisplay');
+        // Display the voucher in the textarea
         const voucherJSON = document.getElementById('voucherJSON');
         voucherJSON.value = JSON.stringify(signedVoucher, null, 2);
-        voucherDisplay.style.display = 'block';
+        
+        // Scroll to the redeem section
+        voucherJSON.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
         console.log('Created voucher:', signedVoucher);
     } catch (error) {
@@ -136,6 +187,7 @@ async function createVoucher() {
         showStatus(statusDiv, 'error', `Error: ${error.message}`);
     }
 }
+
 
 // Load marketplace listings
 async function loadMarketplace() {
@@ -431,5 +483,44 @@ if (typeof window.ethereum !== 'undefined') {
         window.location.reload();
     });
 }
+
+// Redeem a lazy mint voucher
+// Redeem a lazy mint voucher (buy and mint in one transaction)
+// Redeem a lazy mint voucher (buy and mint in one transaction)
+async function redeemVoucher() {
+    try {
+        const voucherJSON = document.getElementById('voucherJSON').value;
+        
+        if (!voucherJSON) {
+            alert('Please paste a voucher JSON first');
+            return;
+        }
+        
+        const voucher = JSON.parse(voucherJSON);
+        
+        console.log('Redeeming voucher:', voucher);
+        console.log('Buyer:', userAddress);
+        console.log('Payment amount:', voucher.minPrice);
+        
+        const tx = await nftContract.lazyMint(userAddress, voucher, {
+            value: voucher.minPrice
+        });
+        
+        alert('Transaction sent! Minting NFT...');
+        console.log('TX hash:', tx.hash);
+        
+        await tx.wait();
+        
+        alert('✅ NFT minted and transferred to you!\n\nCheck "My NFTs" tab to see it.');
+        
+        // Refresh My NFTs view
+        await loadMyNFTs();
+    } catch (error) {
+        console.error('Error redeeming voucher:', error);
+        alert(`Error: ${error.message}`);
+    }
+}
+
+
 
 console.log('✨ NFT Marketplace app initialized');
