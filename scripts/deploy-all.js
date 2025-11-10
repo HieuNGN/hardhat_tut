@@ -3,25 +3,28 @@ async function main() {
 
   console.log("Deploying contracts with account:", deployer.address);
 
-  // Deploy original Token
+  // Deploy original Token (keep for compatibility)
   const Token = await ethers.getContractFactory("Token");
   const token = await Token.deploy();
   await token.waitForDeployment();
   const tokenAddress = await token.getAddress();
   console.log("Token deployed to:", tokenAddress);
 
-  // Deploy MyToken (ERC-20)
-  const MyToken = await ethers.getContractFactory("MyToken");
-  const myToken = await MyToken.deploy(1000000);
-  await myToken.waitForDeployment();
-  const myTokenAddress = await myToken.getAddress();
-  console.log("MyToken (ERC-20) deployed to:", myTokenAddress);
+  // Deploy MyTokenSale (with buy functionality)
+  // Price: 0.001 ETH per token (1000000000000000 wei)
+  const tokenPrice = ethers.parseEther("0.001");
+  const MyTokenSale = await ethers.getContractFactory("MyTokenSale");
+  const myTokenSale = await MyTokenSale.deploy(1000000, tokenPrice);
+  await myTokenSale.waitForDeployment();
+  const myTokenSaleAddress = await myTokenSale.getAddress();
+  console.log("MyTokenSale deployed to:", myTokenSaleAddress);
+  console.log("Token price: 0.001 ETH per token");
 
   // Save addresses
   const fs = require("fs");
   const addresses = {
     Token: tokenAddress,
-    MyToken: myTokenAddress
+    MyToken: myTokenSaleAddress  // Use MyTokenSale instead of old MyToken
   };
   
   fs.writeFileSync(

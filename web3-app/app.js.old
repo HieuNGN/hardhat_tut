@@ -1,0 +1,247 @@
+// Contract configuration
+const CONTRACT_ADDRESS = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"; // Update với địa chỉ contract của bạn
+const CONTRACT_ABI = [
+    "function name() view returns (string)",
+    "function symbol() view returns (string)",
+    "function balanceOf(address) view returns (uint256)",
+    "function approve(address spender, uint256 amount) returns (bool)",
+    "function allowance(address owner, address spender) view returns (uint256)",
+    "function transferFrom(address from, address to, uint256 amount) returns (bool)",
+    "event Approval(address indexed owner, address indexed spender, uint256 value)",
+    "event Transfer(address indexed from, address indexed to, uint256 value)"
+];
+
+let provider;
+let signer;
+let contract;
+let userAddress;
+
+// Tracked spenders for allowance history
+let trackedSpenders = [];
+
+// Connect to MetaMask
+async function connectWallet() {
+    try {
+        if (typeof window.ethereum === 'undefined') {
+            alert('Please install MetaMask!');
+            return;
+        }
+
+        await window.ethereum.request({ method: 'eth_requestAccounts' });
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+        signer = provider.getSigner();
+        userAddress = await signer.getAddress();
+        
+        contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+
+        document.getElementById('userAccount').textContent = userAddress;
+        document.getElementById('contractAddress').textContent = CONTRACT_ADDRESS;
+        
+        await updateBalance();
+        
+        console.log('Connected:', userAddress);
+    } catch (error) {
+        console.error('Error connecting wallet:', error);
+        alert('Error connecting wallet: ' + error.message);
+    }
+}
+
+// Update user balance
+async function updateBalance() {
+    try {
+        const balance = await contract.balanceOf(userAddress);
+        document.getElementById('userBalance').textContent = 
+            ethers.utils.formatEther(balance);
+    } catch (error) {
+        console.error('Error updating balance:', error);
+    }
+}
+
+// Approve function
+async function approve() {
+    const spenderAddress = document.getElementById('spenderAddress').value;
+    const amount = document.getElementById('approveAmount').value;
+    const statusDiv = document.getElementById('approveStatus');
+
+    try {
+        if (!spenderAddress || !amount) {
+            statusDiv.innerHTML = '<p class="error">Please fill in all fields</p>';
+            return;
+        }
+
+        statusDiv.innerHTML = '<p>Approving... Please wait</p>';
+
+        const tx = await contract.approve(
+            spenderAddress,
+            ethers.utils.parseEther(amount)
+        );
+        
+        statusDiv.innerHTML = '<p>Transaction sent. Waiting for confirmation...</p>';
+        await tx.wait();
+
+        // Track this spender for allowance history
+        if (!trackedSpenders.includes(spenderAddress)) {
+            trackedSpenders.push(spenderAddress);
+        }
+
+        statusDiv.innerHTML = `
+            <p class="success"> Approved ${amount} MTK for ${spenderAddress}</p>
+            <p>Transaction hash: ${tx.hash}</p>
+        `;
+
+        // Refresh allowances
+        await loadAllowances();
+    } catch (error) {
+        console.error('Error approving:', error);
+        statusDiv.innerHTML = `<p class="error">Error: ${error.message}</p>`;
+    }
+}
+
+// TransferFrom function
+async function transferFrom() {
+    const fromAddress = document.getElementById('fromAddress').value;
+    const toAddress = document.getElementById('toAddress').value;
+    const amount = document.getElementById('transferAmount').value;
+    const statusDiv = document.getElementById('transferStatus');
+
+    try {
+        if (!fromAddress || !toAddress || !amount) {
+            statusDiv.innerHTML = '<p class="error">Please fill in all fields</p>';
+            return;
+        }
+
+        statusDiv.innerHTML = '<p>Processing transfer... Please wait</p>';
+
+        const tx = await contract.transferFrom(
+            fromAddress,
+            toAddress,
+            ethers.utils.parseEther(amount)
+        );
+        
+        statusDiv.innerHTML = '<p>Transaction sent. Waiting for confirmation...</p>';
+        await tx.wait();
+
+        statusDiv.innerHTML = `
+            <p class="success">Transferred ${amount} MTK from ${fromAddress} to ${toAddress}</p>
+            <p>Transaction hash: ${tx.hash}</p>
+        `;
+
+        // Update balance and reload history
+        await updateBalance();
+        await loadAllowances();
+        await loadTransferHistory();
+    } catch (error) {
+        console.error('Error transferring:', error);
+        statusDiv.innerHTML = `<p class="error">Error: ${error.message}</p>`;
+    }
+}
+
+// Load allowances
+async function loadAllowances() {
+    try {
+        if (!userAddress) {
+            alert('Please connect wallet first');
+            return;
+        }
+
+        const tbody = document.getElementById('allowanceBody');
+        tbody.innerHTML = '<tr><td colspan="3">Loading...</td></tr>';
+
+        if (trackedSpenders.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3">No allowances tracked yet. Approve someone first.</td></tr>';
+            return;
+        }
+
+        let html = '';
+        for (const spender of trackedSpenders) {
+            const allowance = await contract.allowance(userAddress, spender);
+            const allowanceFormatted = ethers.utils.formatEther(allowance);
+            const status = parseFloat(allowanceFormatted) > 0 ? '✅ Active' : '⏸️ Depleted';
+            
+            html += `
+                <tr>
+                    <td>${spender}</td>
+                    <td>${allowanceFormatted}</td>
+                    <td>${status}</td>
+                </tr>
+            `;
+        }
+
+        tbody.innerHTML = html || '<tr><td colspan="3">No allowances found</td></tr>';
+    } catch (error) {
+        console.error('Error loading allowances:', error);
+        document.getElementById('allowanceBody').innerHTML = 
+            `<tr><td colspan="3" class="error">Error: ${error.message}</td></tr>`;
+    }
+}
+
+// Load transfer history
+async function loadTransferHistory() {
+    try {
+        if (!userAddress) {
+            alert('Please connect wallet first');
+            return;
+        }
+
+        const tbody = document.getElementById('transferBody');
+        tbody.innerHTML = '<tr><td colspan="5">Loading...</td></tr>';
+
+        // Query Transfer events
+        const filter = contract.filters.Transfer(null, null, null);
+        const events = await contract.queryFilter(filter, 0, 'latest');
+
+        // Filter events where user is involved
+        const userEvents = events.filter(event => 
+            event.args.from.toLowerCase() === userAddress.toLowerCase() ||
+            event.args.to.toLowerCase() === userAddress.toLowerCase()
+        );
+
+        if (userEvents.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5">No transfers found</td></tr>';
+            return;
+        }
+
+        let html = '';
+        for (const event of userEvents.reverse()) {
+            const amount = ethers.utils.formatEther(event.args.value);
+            html += `
+                <tr>
+                    <td>${event.blockNumber}</td>
+                    <td>${event.args.from.substring(0, 10)}...</td>
+                    <td>${event.args.to.substring(0, 10)}...</td>
+                    <td>${amount}</td>
+                    <td><a href="#" title="${event.transactionHash}">${event.transactionHash.substring(0, 10)}...</a></td>
+                </tr>
+            `;
+        }
+
+        tbody.innerHTML = html;
+    } catch (error) {
+        console.error('Error loading transfer history:', error);
+        document.getElementById('transferBody').innerHTML = 
+            `<tr><td colspan="5" class="error">Error: ${error.message}</td></tr>`;
+    }
+}
+
+// Auto-connect on page load if already connected
+window.addEventListener('load', async () => {
+    if (typeof window.ethereum !== 'undefined') {
+        const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+        if (accounts.length > 0) {
+            await connectWallet();
+        }
+    }
+});
+
+// Listen for account changes
+if (typeof window.ethereum !== 'undefined') {
+    window.ethereum.on('accountsChanged', async (accounts) => {
+        if (accounts.length > 0) {
+            await connectWallet();
+        } else {
+            userAddress = null;
+            document.getElementById('userAccount').textContent = 'Not connected';
+            document.getElementById('userBalance').textContent = '0';
+        }
+    });
+}

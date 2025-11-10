@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MTK Token Manager</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .wallet-info {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+
+        .wallet-info p {
+            margin: 8px 0;
+            font-size: 0.95em;
+        }
+
+        .wallet-info strong {
+            font-weight: 600;
+        }
+
+        .connect-btn {
+            background: white;
+            color: #667eea;
+            border: none;
+            padding: 12px 30px;
+            font-size: 1em;
+            font-weight: bold;
+            border-radius: 25px;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: all 0.3s;
+        }
+
+        .connect-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .tabs {
+            display: flex;
+            background: #f8f9fa;
+            border-bottom: 2px solid #dee2e6;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-size: 1em;
+            font-weight: 600;
+            color: #6c757d;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .tab:hover {
+            background: #e9ecef;
+            color: #495057;
+        }
+
+        .tab.active {
+            color: #667eea;
+            background: white;
+        }
+
+        .tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: #667eea;
+        }
+
+        .tab-content {
+            display: none;
+            padding: 30px;
+            animation: fadeIn 0.3s;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 1em;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-right: 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .btn-secondary:hover {
+            box-shadow: 0 5px 15px rgba(108, 117, 125, 0.4);
+        }
+
+        .status {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border-left: 4px solid #28a745;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border-left: 4px solid #dc3545;
+        }
+
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border-left: 4px solid #17a2b8;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        .price-display {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .price-display h3 {
+            margin-bottom: 10px;
+        }
+
+        .price-display .price {
+            font-size: 2em;
+            font-weight: bold;
+        }
+
+        .calculator {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .calculator-result {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #667eea;
+            margin-top: 10px;
+        }
+        #history table, #history th, #history td {
+    color: #111 !important;
+}
+
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🪙 MTK Token Manager</h1>
+            <p>Professional Token Management Platform</p>
+
+            <div class="wallet-info">
+                <p><strong>Account:</strong> <span id="userAccount">Not connected</span></p>
+                <p><strong>Balance:</strong> <span id="userBalance">0</span> MTK</p>
+                <p><strong>ETH Balance:</strong> <span id="ethBalance">0</span> ETH</p>
+                <p><strong>Contract:</strong> <span id="contractAddress">Loading...</span></p>
+                <button class="connect-btn" onclick="connectWallet()">
+                    Connect MetaMask
+                </button>
+                <button class="connect-btn" onclick="refreshAccount()" style="background: #6c757d; margin-left: 10px;">
+                    🔄 Refresh
+                </button>
+            </div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab active" onclick="openTab(event, 'buy')">💰 Buy Tokens</button>
+            <button class="tab" onclick="openTab(event, 'transfer')">📤 Transfer</button>
+            <button class="tab" onclick="openTab(event, 'approve')">✅ Approve</button>
+            <button class="tab" onclick="openTab(event, 'transferfrom')">🔄 TransferFrom</button>
+            <button class="tab" onclick="openTab(event, 'history')">📊 History</button>
+        </div>
+
+        <!-- Buy Tokens Tab -->
+        <div id="buy" class="tab-content active">
+            <h2>Buy MTK Tokens</h2>
+            <p>Purchase tokens directly with ETH</p>
+
+            <div class="price-display">
+                <h3>Current Token Price</h3>
+                <div class="price"><span id="tokenPrice">Loading...</span> ETH per Token</div>
+            </div>
+
+            <div class="calculator">
+                <h3>Purchase Calculator</h3>
+                <div class="form-group">
+                    <label>Number of Tokens:</label>
+                    <input type="number" id="buyCalcTokens" placeholder="100" oninput="calculateCost()">
+                </div>
+                <div class="calculator-result">
+                    Total Cost: <span id="calculatedCost">0</span> ETH
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Tokens to Buy:</label>
+                <input type="number" id="buyAmount" placeholder="100">
+            </div>
+
+            <button class="btn" onclick="buyTokens()">Buy Tokens</button>
+            <div id="buyStatus"></div>
+        </div>
+
+        <!-- Transfer Tab -->
+        <div id="transfer" class="tab-content">
+            <h2>Transfer Tokens</h2>
+            <p>Send tokens to another address</p>
+
+            <div class="form-group">
+                <label>Recipient Address:</label>
+                <input type="text" id="transferTo" placeholder="0x...">
+            </div>
+
+            <div class="form-group">
+                <label>Amount (MTK):</label>
+                <input type="number" id="transferAmount" placeholder="100">
+            </div>
+
+            <button class="btn" onclick="transfer()">Send Tokens</button>
+            <div id="transferStatus"></div>
+        </div>
+
+        <!-- Approve Tab -->
+        <div id="approve" class="tab-content">
+            <h2>Approve Spender</h2>
+            <p>Allow another address to spend your tokens</p>
+
+            <div class="form-group">
+                <label>Spender Address:</label>
+                <input type="text" id="spenderAddress" placeholder="0x...">
+            </div>
+
+            <div class="form-group">
+                <label>Allowance Amount (MTK):</label>
+                <input type="number" id="approveAmount" placeholder="1000">
+            </div>
+
+            <button class="btn" onclick="approve()">Approve</button>
+            <button class="btn btn-secondary" onclick="loadAllowances()">Refresh Allowances</button>
+            <div id="approveStatus"></div>
+
+            <h3 style="margin-top: 30px;">Active Allowances</h3>
+            <table id="allowanceTable">
+                <thead>
+                    <tr>
+                        <th>Spender Address</th>
+                        <th>Allowance (MTK)</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="allowanceBody">
+                    <tr>
+                        <td colspan="3" style="text-align: center;">Click Refresh to load data</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- TransferFrom Tab -->
+        <div id="transferfrom" class="tab-content">
+            <h2>TransferFrom</h2>
+            <p>Transfer tokens on behalf of another address (requires allowance)</p>
+
+            <div class="form-group">
+                <label>From (Owner Address):</label>
+                <input type="text" id="fromAddress" placeholder="0x...">
+            </div>
+
+            <div class="form-group">
+                <label>To (Recipient Address):</label>
+                <input type="text" id="toAddress" placeholder="0x...">
+            </div>
+
+            <div class="form-group">
+                <label>Amount (MTK):</label>
+                <input type="number" id="transferFromAmount" placeholder="100">
+            </div>
+
+            <button class="btn" onclick="transferFrom()">Execute Transfer</button>
+            <div id="transferFromStatus"></div>
+        </div>
+
+        <!-- History Tab -->
+        <div id="history" class="tab-content">
+            <h2>Transaction History</h2>
+            <p>View all token transfers and purchases</p>
+
+            <button class="btn btn-secondary" onclick="loadTransferHistory()">Refresh History</button>
+
+            <h3 style="margin-top: 30px;">Recent Transfers</h3>
+            <table id="transferTable">
+                <thead>
+                    <tr>
+                        <th>Block</th>
+                        <th>From</th>
+                        <th>To</th>
+                        <th>Amount (MTK)</th>
+                        <th>Tx Hash</th>
+                    </tr>
+                </thead>
+                <tbody id="transferBody">
+                    <tr>
+                        <td colspan="5" style="text-align: center;">Click Refresh to load data</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
